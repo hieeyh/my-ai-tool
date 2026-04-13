@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  // 本地用 sqlite，生产用 postgresql
+  // 通过 DATABASE_URL 环境变量区分
+  provider = env("DATABASE_PROVIDER")
+}
+
+// 一次对话（对话列表里的一条）
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String    @default("新对话")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  messages  Message[]
+}
+
+// 一条消息
+model Message {
+  id             String       @id @default(cuid())
+  role           String
+  content        String
+  createdAt      DateTime     @default(now())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}

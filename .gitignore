@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/app/generated/prisma
+
+# SQLite 数据库文件（不提交，每个环境自己生成）
+prisma/dev.db
+prisma/dev.db-journal
