@@ -1,28 +1,29 @@
 import { deepseek } from '@ai-sdk/deepseek';
-import { convertToModelMessages, streamText, UIMessage } from 'ai';
+import { streamText, UIMessageStreamWriter } from 'ai';
 import { saveMessage } from '../../../lib/actions';
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const { messages, conversationId }: { messages: UIMessage[]; conversationId?: string } = await req.json();
+    const body = await req.json();
+    // ai@6 新格式：messages 在 body.messages，附加字段在 body 里
+    const messages = body.messages ?? [];
+    const conversationId = body.conversationId as string | undefined;
 
-    // 保存用户最新一条消息到数据库
-    const lastUserMessage = messages[messages.length - 1];
-    if (conversationId && lastUserMessage?.role === 'user') {
-      const text = lastUserMessage.parts
-        .filter((p) => p.type === 'text')
-        .map((p) => (p as { type: 'text'; text: string }).text)
-        .join('');
-      await saveMessage(conversationId, 'user', text);
+    // 找到最后一条用户消息保存
+    const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user');
+    if (conversationId && lastUserMsg) {
+      await saveMessage(conversationId, 'user', lastUserMsg.content);
     }
 
     const result = streamText({
       model: deepseek('deepseek-chat'),
       system: '你是一个专业、友善的 AI 助手，使用中文回答问题，回答简洁清晰。',
-      messages: await convertToModelMessages(messages),
-      // 流式完成后保存 AI 回复
+      messages: messages.map((m: { role: string; content: string }) => ({
+        role: m.role,
+        content: m.content,
+      })),
       onFinish: async ({ text }) => {
         if (conversationId && text) {
           await saveMessage(conversationId, 'assistant', text);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import {
   createConversation,
@@ -31,25 +32,28 @@ type Props = {
 export default function ChatClient({ conversations: initialConversations, user }: Props) {
   const [conversations, setConversations] = useState(initialConversations);
   const [currentId, setCurrentId] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState('');
   const [isPending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const chatHelpers = useChat({
-    api: '/api/chat',
-    body: { conversationId: currentId },
+  const { messages, sendMessage, stop, status, setMessages } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      body: { conversationId: currentId },
+    }),
   });
 
-  const messages = chatHelpers.messages;
-  const input: string = (chatHelpers as unknown as { input: string }).input ?? '';
-  const handleInputChange = (chatHelpers as unknown as { handleInputChange: React.ChangeEventHandler<HTMLTextAreaElement> }).handleInputChange ?? (() => {});
-  const handleSubmit = chatHelpers.handleSubmit;
-  const isLoading = chatHelpers.isLoading;
-  const stop = chatHelpers.stop;
-  const setMessages = chatHelpers.setMessages;
+  const isLoading = status === 'submitted' || status === 'streaming';
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handleSend = () => {
+    if (!inputValue.trim() || !currentId || isLoading) return;
+    sendMessage({ role: 'user', content: inputValue });
+    setInputValue('');
+  };
 
   const handleNewChat = () => {
     if (!user.id) return;
@@ -247,22 +251,14 @@ export default function ChatClient({ conversations: initialConversations, user }
         </main>
 
         <div className="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-4">
-          <form
-            onSubmit={(e) => {
-              if (!currentId) { e.preventDefault(); return; }
-              handleSubmit(e);
-            }}
-            className="max-w-2xl mx-auto flex gap-3 items-end"
-          >
+          <div className="max-w-2xl mx-auto flex gap-3 items-end">
             <textarea
-              value={input}
-              onChange={handleInputChange}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (input.trim() && !isLoading && currentId) {
-                    handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
-                  }
+                  handleSend();
                 }
               }}
               placeholder={currentId ? '输入消息...（Enter 发送）' : '请先新建对话'}
@@ -272,20 +268,24 @@ export default function ChatClient({ conversations: initialConversations, user }
               style={{ maxHeight: '120px', overflowY: 'auto' }}
             />
             {isLoading ? (
-              <button type="button" onClick={stop} className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors">
+              <button type="button" onClick={() => stop()} className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
                   <rect x="2" y="2" width="10" height="10" rx="1" />
                 </svg>
               </button>
             ) : (
-              <button type="submit" disabled={!input.trim() || !currentId} className="flex-shrink-0 w-10 h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors">
+              <button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || !currentId}
+                className="flex-shrink-0 w-10 h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="8" y1="13" x2="8" y2="3" />
                   <polyline points="4,7 8,3 12,7" />
                 </svg>
               </button>
             )}
-          </form>
+          </div>
         </div>
       </div>
     </div>
