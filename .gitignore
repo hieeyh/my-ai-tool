@@ -45,3 +45,6 @@ next-env.d.ts
 # SQLite 数据库文件（不提交，每个环境自己生成）
 prisma/dev.db
 prisma/dev.db-journal
+
+# CloudBase 配置（含敏感信息，不提交）
+cloudbaserc.json
