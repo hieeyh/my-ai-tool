@@ -34,18 +34,18 @@ export default function ChatClient({ conversations: initialConversations, user }
   const [isPending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const {
-    messages,
-    input = '',
-    handleInputChange = () => {},
-    handleSubmit,
-    isLoading,
-    stop,
-    setMessages,
-  } = useChat({
+  const chatHelpers = useChat({
     api: '/api/chat',
     body: { conversationId: currentId },
   });
+
+  const messages = chatHelpers.messages;
+  const input: string = (chatHelpers as unknown as { input: string }).input ?? '';
+  const handleInputChange = (chatHelpers as unknown as { handleInputChange: React.ChangeEventHandler<HTMLTextAreaElement> }).handleInputChange ?? (() => {});
+  const handleSubmit = chatHelpers.handleSubmit;
+  const isLoading = chatHelpers.isLoading;
+  const stop = chatHelpers.stop;
+  const setMessages = chatHelpers.setMessages;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
