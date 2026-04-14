@@ -51,7 +51,7 @@ export default function ChatClient({ conversations: initialConversations, user }
 
   const handleSend = () => {
     if (!inputValue.trim() || !currentId || isLoading) return;
-    sendMessage({ role: 'user', content: inputValue });
+    sendMessage({ text: inputValue });
     setInputValue('');
   };
 
