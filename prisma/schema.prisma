@@ -7,17 +7,70 @@ datasource db {
   provider = "postgresql"
 }
 
-// 一次对话（对话列表里的一条）
+// ==================== NextAuth 必需的表 ====================
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String?         @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  conversations Conversation[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==================== 业务表 ====================
+
 model Conversation {
   id        String    @id @default(cuid())
   title     String    @default("新对话")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  // 绑定用户
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   messages  Message[]
 }
 
-// 一条消息
 model Message {
   id             String       @id @default(cuid())
   role           String
