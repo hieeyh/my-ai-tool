@@ -1,28 +1,35 @@
 import { deepseek } from '@ai-sdk/deepseek';
-import { streamText, UIMessageStreamWriter } from 'ai';
+import { streamText } from 'ai';
 import { saveMessage } from '../../../lib/actions';
 
 export const maxDuration = 30;
 
+// ai@6 UIMessage parts 里提取文本
+function extractText(msg: { parts?: Array<{ type: string; text?: string }>; content?: string }): string {
+  if (msg.parts) {
+    return msg.parts.filter((p) => p.type === 'text').map((p) => p.text ?? '').join('');
+  }
+  return msg.content ?? '';
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    // ai@6 新格式：messages 在 body.messages，附加字段在 body 里
-    const messages = body.messages ?? [];
+    const messages: Array<{ role: string; parts?: Array<{ type: string; text?: string }>; content?: string }> = body.messages ?? [];
     const conversationId = body.conversationId as string | undefined;
 
-    // 找到最后一条用户消息保存
-    const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user');
+    // 保存最后一条用户消息
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     if (conversationId && lastUserMsg) {
-      await saveMessage(conversationId, 'user', lastUserMsg.content);
+      await saveMessage(conversationId, 'user', extractText(lastUserMsg));
     }
 
     const result = streamText({
       model: deepseek('deepseek-chat'),
       system: '你是一个专业、友善的 AI 助手，使用中文回答问题，回答简洁清晰。',
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: m.content,
+      messages: messages.map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: extractText(m),
       })),
       onFinish: async ({ text }) => {
         if (conversationId && text) {

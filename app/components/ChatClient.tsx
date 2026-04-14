@@ -29,6 +29,14 @@ type Props = {
   user: User;
 };
 
+// ai@6: UIMessage 没有 content 字段，文本在 parts[].text 里
+function getMessageText(message: { parts: Array<{ type: string; text?: string }> }): string {
+  return message.parts
+    .filter((p) => p.type === 'text')
+    .map((p) => p.text ?? '')
+    .join('');
+}
+
 export default function ChatClient({ conversations: initialConversations, user }: Props) {
   const [conversations, setConversations] = useState(initialConversations);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -74,7 +82,6 @@ export default function ChatClient({ conversations: initialConversations, user }
         msgs.map((m) => ({
           id: m.id,
           role: m.role as 'user' | 'assistant',
-          content: m.content,
           parts: [{ type: 'text' as const, text: m.content }],
         }))
       );
@@ -226,7 +233,7 @@ export default function ChatClient({ conversations: initialConversations, user }
                     ? 'bg-black text-white dark:bg-white dark:text-black rounded-tr-sm'
                     : 'bg-white text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 border border-zinc-100 dark:border-zinc-700 rounded-tl-sm'
                 }`}>
-                  {message.content}
+                  {getMessageText(message)}
                   {message.role === 'assistant' && isLoading && message === messages[messages.length - 1] && (
                     <span className="inline-flex gap-1 ml-1">
                       <span className="w-1 h-1 rounded-full bg-zinc-400 animate-bounce [animation-delay:0ms]" />
