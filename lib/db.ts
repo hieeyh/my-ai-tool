@@ -1,21 +1,26 @@
 import { PrismaClient } from '../app/generated/prisma';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-// 全局单例，防止开发环境热重载创建多个连接
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined;
+}
 
-function createPrismaClient() {
+// 懒加载：只在真正调用时才初始化，build 阶段不会触发
+export function getDb(): PrismaClient {
+  if (global.__prisma) return global.__prisma;
+
   const url = process.env.DATABASE_URL;
-  // 构建阶段没有 DATABASE_URL 时返回空客户端，运行时再报错
-  if (!url) {
-    return new PrismaClient();
-  }
+  if (!url) throw new Error('DATABASE_URL is not set');
+
   const adapter = new PrismaPg({ connectionString: url });
-  return new PrismaClient({ adapter });
+  global.__prisma = new PrismaClient({ adapter });
+  return global.__prisma;
 }
 
-export const db = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db;
-}
+// 兼容旧代码的 db 导出（动态 getter）
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    return (getDb() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
