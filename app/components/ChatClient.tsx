@@ -127,9 +127,12 @@ export default function ChatClient({ conversations: initialConversations, user }
             <ul className="space-y-0.5">
               {conversations.map((conv) => (
                 <li key={conv.id}>
-                  <button
+                  <div
                     onClick={() => handleSelectConversation(conv.id)}
-                    className={`w-full text-left rounded-lg px-3 py-2.5 group flex items-start justify-between gap-2 transition-colors ${
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSelectConversation(conv.id)}
+                    className={`w-full cursor-pointer text-left rounded-lg px-3 py-2.5 group flex items-start justify-between gap-2 transition-colors ${
                       currentId === conv.id
                         ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
                         : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
@@ -152,7 +155,7 @@ export default function ChatClient({ conversations: initialConversations, user }
                         <line x1="12" y1="4" x2="4" y2="12" />
                       </svg>
                     </button>
-                  </button>
+                  </div>
                 </li>
               ))}
             </ul>
