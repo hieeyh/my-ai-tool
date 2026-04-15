@@ -1,6 +1,8 @@
 import { deepseek } from '@ai-sdk/deepseek';
 import { streamText } from 'ai';
 import { saveMessage } from '../../../lib/actions';
+import { ratelimit } from '../../../lib/ratelimit';
+import { auth } from '../../../auth';
 
 export const maxDuration = 30;
 
@@ -14,11 +16,35 @@ function extractText(msg: { parts?: Array<{ type: string; text?: string }>; cont
 
 export async function POST(req: Request) {
   try {
+    // 1. 鉴权
+    const session = await auth();
+    if (!session?.user?.id) {
+      return new Response(JSON.stringify({ error: '未登录' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. 限流：每个用户每分钟最多 20 次
+    const { success, remaining } = await ratelimit.limit(session.user.id);
+    if (!success) {
+      return new Response(
+        JSON.stringify({ error: '请求过于频繁，请稍后再试' }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': String(remaining),
+          },
+        }
+      );
+    }
+
+    // 3. 处理请求
     const body = await req.json();
     const messages: Array<{ role: string; parts?: Array<{ type: string; text?: string }>; content?: string }> = body.messages ?? [];
     const conversationId = body.conversationId as string | undefined;
 
-    // 调试：确认 conversationId 是否传到后端
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     if (conversationId && lastUserMsg) {
       await saveMessage(conversationId, 'user', extractText(lastUserMsg));
