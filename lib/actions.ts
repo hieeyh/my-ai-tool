@@ -36,23 +36,32 @@ export async function getMessages(conversationId: string, userId: string) {
   });
 }
 
-// 保存消息
+// 保存消息，返回最新标题
 export async function saveMessage(
   conversationId: string,
   role: 'user' | 'assistant',
   content: string
-) {
+): Promise<{ title: string }> {
   await db.message.create({
     data: { conversationId, role, content },
   });
 
+  let title = '新对话';
+
   if (role === 'user') {
     const count = await db.message.count({ where: { conversationId } });
     if (count === 1) {
+      title = content.slice(0, 20);
       await db.conversation.update({
         where: { id: conversationId },
-        data: { title: content.slice(0, 20) },
+        data: { title },
       });
+    } else {
+      const conv = await db.conversation.findUnique({
+        where: { id: conversationId },
+        select: { title: true },
+      });
+      title = conv?.title ?? '新对话';
     }
     await db.conversation.update({
       where: { id: conversationId },
@@ -61,6 +70,7 @@ export async function saveMessage(
   }
 
   revalidatePath('/');
+  return { title };
 }
 
 // 删除对话（验证归属）

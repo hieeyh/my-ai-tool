@@ -48,7 +48,6 @@ export default function ChatClient({ conversations: initialConversations, user }
   const { messages, sendMessage, stop, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      body: { conversationId: currentId },
     }),
   });
 
@@ -60,7 +59,17 @@ export default function ChatClient({ conversations: initialConversations, user }
 
   const handleSend = () => {
     if (!inputValue.trim() || !currentId || isLoading) return;
-    sendMessage({ text: inputValue });
+
+    // 如果是第一条消息，立即更新本地侧边栏标题
+    const isFirstMessage = messages.length === 0;
+    if (isFirstMessage) {
+      const newTitle = inputValue.slice(0, 20);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === currentId ? { ...c, title: newTitle } : c))
+      );
+    }
+
+    sendMessage({ text: inputValue }, { body: { conversationId: currentId } });
     setInputValue('');
   };
 

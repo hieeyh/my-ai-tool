@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const messages: Array<{ role: string; parts?: Array<{ type: string; text?: string }>; content?: string }> = body.messages ?? [];
     const conversationId = body.conversationId as string | undefined;
 
-    // 保存最后一条用户消息
+    // 调试：确认 conversationId 是否传到后端
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     if (conversationId && lastUserMsg) {
       await saveMessage(conversationId, 'user', extractText(lastUserMsg));
