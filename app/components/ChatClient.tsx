@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useEffect, useRef, useState, useTransition } from 'react';
+import MarkdownContent from './MarkdownContent';
 import {
   createConversation,
   deleteConversation,
@@ -228,18 +229,18 @@ export default function ChatClient({ conversations: initialConversations, user }
                     <span className="text-white dark:text-black text-xs font-bold">AI</span>
                   </div>
                 )}
-                <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   message.role === 'user'
-                    ? 'bg-black text-white dark:bg-white dark:text-black rounded-tr-sm'
+                    ? 'bg-black text-white dark:bg-white dark:text-black rounded-tr-sm whitespace-pre-wrap'
                     : 'bg-white text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 border border-zinc-100 dark:border-zinc-700 rounded-tl-sm'
                 }`}>
-                  {getMessageText(message)}
-                  {message.role === 'assistant' && isLoading && message === messages[messages.length - 1] && (
-                    <span className="inline-flex gap-1 ml-1">
-                      <span className="w-1 h-1 rounded-full bg-zinc-400 animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1 h-1 rounded-full bg-zinc-400 animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1 h-1 rounded-full bg-zinc-400 animate-bounce [animation-delay:300ms]" />
-                    </span>
+                  {message.role === 'assistant' ? (
+                    <MarkdownContent
+                      content={getMessageText(message)}
+                      isStreaming={isLoading && message === messages[messages.length - 1]}
+                    />
+                  ) : (
+                    getMessageText(message)
                   )}
                 </div>
                 {message.role === 'user' && (
