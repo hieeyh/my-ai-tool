@@ -2,13 +2,9 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import MarkdownContent from './MarkdownContent';
-import {
-  createConversation,
-  deleteConversation,
-  getMessages,
-} from '../../lib/actions';
+import { trpc } from '../../lib/trpc/client';
 import { signOut } from 'next-auth/react';
 
 type Conversation = {
@@ -40,18 +36,49 @@ function getMessageText(message: { parts: Array<{ type: string; text?: string }>
 
 export default function ChatClient({ conversations: initialConversations, user }: Props) {
   const [conversations, setConversations] = useState(initialConversations);
-  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [currentId, setCurrentId] = useState<string | null>(
+    initialConversations[0]?.id ?? null
+  );
   const [inputValue, setInputValue] = useState('');
-  const [isPending, startTransition] = useTransition();
+  const [isSwitching, setIsSwitching] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // 初始加载第一个对话的消息
+  const utils = trpc.useUtils();
   const { messages, sendMessage, stop, status, setMessages } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-    }),
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
   });
 
+  useEffect(() => {
+    if (initialConversations[0]?.id) {
+      handleSelectConversation(initialConversations[0].id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // tRPC mutations
+  const createMutation = trpc.conversation.create.useMutation({
+    onSuccess: (conv) => {
+      setConversations((prev) => [{ ...conv, messages: [] }, ...prev]);
+      setCurrentId(conv.id);
+      setMessages([]);
+    },
+  });
+
+  const deleteMutation = trpc.conversation.delete.useMutation({
+    onSuccess: (_, { conversationId }) => {
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (currentId === conversationId) {
+        setCurrentId(null);
+        setMessages([]);
+      }
+    },
+  });
+
+
+
   const isLoading = status === 'submitted' || status === 'streaming';
+  const isPending = createMutation.isPending || deleteMutation.isPending;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -74,20 +101,16 @@ export default function ChatClient({ conversations: initialConversations, user }
   };
 
   const handleNewChat = () => {
-    if (!user.id) return;
-    startTransition(async () => {
-      const conv = await createConversation(user.id!);
-      setConversations((prev) => [{ ...conv, messages: [] }, ...prev]);
-      setCurrentId(conv.id);
-      setMessages([]);
-    });
+    createMutation.mutate();
   };
 
-  const handleSelectConversation = (id: string) => {
-    if (!user.id) return;
-    startTransition(async () => {
-      setCurrentId(id);
-      const msgs = await getMessages(id, user.id!);
+  const handleSelectConversation = async (id: string) => {
+    if (id === currentId) return;
+    setCurrentId(id);
+    setMessages([]);
+    setIsSwitching(true);
+    try {
+      const msgs = await utils.conversation.getMessages.fetch({ conversationId: id });
       setMessages(
         msgs.map((m) => ({
           id: m.id,
@@ -95,20 +118,14 @@ export default function ChatClient({ conversations: initialConversations, user }
           parts: [{ type: 'text' as const, text: m.content }],
         }))
       );
-    });
+    } finally {
+      setIsSwitching(false);
+    }
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
-    if (!user.id) return;
     e.stopPropagation();
-    startTransition(async () => {
-      await deleteConversation(id, user.id!);
-      setConversations((prev) => prev.filter((c) => c.id !== id));
-      if (currentId === id) {
-        setCurrentId(null);
-        setMessages([]);
-      }
-    });
+    deleteMutation.mutate({ conversationId: id });
   };
 
   return (
@@ -217,7 +234,18 @@ export default function ChatClient({ conversations: initialConversations, user }
 
         <main className="flex-1 overflow-y-auto px-4 py-6">
           <div className="max-w-2xl mx-auto space-y-6">
-            {messages.length === 0 && (
+            {/* 切换对话时的加载状态 */}
+            {isSwitching && (
+              <div className="space-y-4 animate-pulse">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className={`flex gap-3 ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 ${i % 2 === 0 ? 'w-48' : 'w-64'}`} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!isSwitching && messages.length === 0 && (
               <div className="text-center py-20">
                 <div className="w-16 h-16 rounded-2xl bg-black dark:bg-white mx-auto mb-4 flex items-center justify-center">
                   <span className="text-white dark:text-black text-2xl font-bold">AI</span>
