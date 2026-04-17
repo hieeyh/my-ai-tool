@@ -38,6 +38,7 @@ model Account {
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])  // 按用户查 OAuth 账号
 }
 
 model Session {
@@ -46,6 +47,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])  // 按用户查 Session
 }
 
 model VerificationToken {
@@ -64,11 +67,12 @@ model Conversation {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  // 绑定用户
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   messages  Message[]
+
+  // 按用户查对话列表，同时按 updatedAt 排序 → 复合索引
+  @@index([userId, updatedAt(sort: Desc)])
 }
 
 model Message {
@@ -79,4 +83,7 @@ model Message {
 
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // 按对话查消息，按时间排序
+  @@index([conversationId, createdAt])
 }
