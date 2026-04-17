@@ -10,7 +10,7 @@ import { signOut } from 'next-auth/react';
 type Conversation = {
   id: string;
   title: string;
-  updatedAt: Date;
+  updatedAt: Date | string;
   messages: { content: string }[];
 };
 
