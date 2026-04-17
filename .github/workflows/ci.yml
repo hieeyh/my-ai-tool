@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Type Check & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 拉取代码
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. 安装 Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # 3. 安装依赖
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. 生成 Prisma Client（build 需要）
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      # 5. TypeScript 类型检查
+      - name: Type check
+        run: npx tsc --noEmit
+        env:
+          # CI 环境里 build 时需要假的环境变量，避免报错
+          DATABASE_URL: postgresql://fake:fake@localhost:5432/fake
+          AUTH_SECRET: fake-secret-for-ci-only
+          GITHUB_CLIENT_ID: fake
+          GITHUB_CLIENT_SECRET: fake
+          DEEPSEEK_API_KEY: fake
+          UPSTASH_REDIS_REST_URL: https://fake.upstash.io
+          UPSTASH_REDIS_REST_TOKEN: fake
+
+      # 6. 构建
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://fake:fake@localhost:5432/fake
+          AUTH_SECRET: fake-secret-for-ci-only
+          GITHUB_CLIENT_ID: fake
+          GITHUB_CLIENT_SECRET: fake
+          DEEPSEEK_API_KEY: fake
+          UPSTASH_REDIS_REST_URL: https://fake.upstash.io
+          UPSTASH_REDIS_REST_TOKEN: fake
